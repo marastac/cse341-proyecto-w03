@@ -1,0 +1,25 @@
+{
+  "name": "cse341-proyecto-w03",
+  "version": "1.0.0",
+  "description": "W03 CRUD Operations API - Part 1",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "swagger": "node swagger.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["api", "crud", "mongodb", "express"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "mongoose": "^8.14.2",
+    "swagger-autogen": "^2.23.7",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
