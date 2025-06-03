@@ -7,7 +7,7 @@ const doc = {
     version: '1.0.0',
   },
   // UPDATE: Change this to your actual Render URL when deploying to production
-  host: 'localhost:3000',
+  host: 'cse341-proyecto-w03.onrender.com',
   schemes: ['http', 'https'],
   definitions: {
     Data: {
