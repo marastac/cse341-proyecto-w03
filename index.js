@@ -1,33 +1,76 @@
-// index.js
+// index.js - VERSIÓN SIMPLIFICADA Y ESTABLE
 const express = require('express');
 const mongoose = require('mongoose');
 const swaggerUi = require('swagger-ui-express');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Swagger Document - Manual configuration for production
+console.log('🚀 Starting server...');
+
+// CORS Configuration - SIMPLE Y FUNCIONAL
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: false
+}));
+
+// Additional CORS headers
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Basic middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log("✅ Connected to MongoDB");
+})
+.catch(err => {
+  console.error("❌ Error connecting to MongoDB:", err);
+  process.exit(1);
+});
+
+// Simple Swagger Document
 const swaggerDocument = {
   "swagger": "2.0",
   "info": {
-    "title": "CSE341 W03 CRUD Operations API - Complete",
-    "description": "Complete API with two collections: Data and Users. All endpoints include GET, POST, PUT, DELETE with validation.",
+    "title": "CSE341 W03 CRUD Operations API",
+    "description": "Complete API with Data and Users collections",
     "version": "2.0.0"
   },
-  "host": "cse341-proyecto-w03.onrender.com",
+  "host": process.env.NODE_ENV === 'production' ? 'cse341-proyecto-w03.onrender.com' : `localhost:${PORT}`,
   "basePath": "/",
-  "schemes": ["https", "http"],
+  "schemes": process.env.NODE_ENV === 'production' ? ["https"] : ["http"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
   "definitions": {
     "Data": {
       "type": "object",
       "properties": {
+        "_id": { "type": "string" },
         "title": { "type": "string", "example": "Sample Product Title" },
-        "description": { "type": "string", "example": "Sample description of the product or service" },
+        "description": { "type": "string", "example": "Sample description" },
         "category": { "type": "string", "example": "Technology" },
         "price": { "type": "number", "example": 99.99 },
         "isActive": { "type": "boolean", "example": true },
-        "tags": { "type": "array", "items": { "type": "string" }, "example": ["sample", "example", "test"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
         "createdDate": { "type": "string", "format": "date-time" },
         "lastModified": { "type": "string", "format": "date-time" },
         "metadata": {
@@ -42,6 +85,7 @@ const swaggerDocument = {
     "User": {
       "type": "object",
       "properties": {
+        "_id": { "type": "string" },
         "firstName": { "type": "string", "example": "John" },
         "lastName": { "type": "string", "example": "Doe" },
         "email": { "type": "string", "example": "john.doe@example.com" },
@@ -65,7 +109,6 @@ const swaggerDocument = {
       "get": {
         "tags": ["Data"],
         "summary": "Get all data",
-        "description": "Retrieve all data from the database",
         "responses": {
           "200": {
             "description": "Array of data objects",
@@ -73,18 +116,15 @@ const swaggerDocument = {
               "type": "array",
               "items": { "$ref": "#/definitions/Data" }
             }
-          },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "post": {
         "tags": ["Data"],
         "summary": "Create new data",
-        "description": "Create a new data object with all required fields",
         "parameters": [{
           "in": "body",
           "name": "body",
-          "description": "Data object",
           "required": true,
           "schema": { "$ref": "#/definitions/Data" }
         }],
@@ -92,9 +132,7 @@ const swaggerDocument = {
           "201": {
             "description": "Data created successfully",
             "schema": { "$ref": "#/definitions/Data" }
-          },
-          "400": { "description": "Invalid input data or missing required fields" },
-          "500": { "description": "Server error" }
+          }
         }
       }
     },
@@ -102,11 +140,9 @@ const swaggerDocument = {
       "get": {
         "tags": ["Data"],
         "summary": "Get data by ID",
-        "description": "Retrieve a specific data object by their ID",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "Data ID",
           "required": true,
           "type": "string"
         }],
@@ -114,25 +150,20 @@ const swaggerDocument = {
           "200": {
             "description": "Data found",
             "schema": { "$ref": "#/definitions/Data" }
-          },
-          "404": { "description": "Data not found" },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "put": {
         "tags": ["Data"],
         "summary": "Update data by ID",
-        "description": "Update an existing data object with validation",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "Data ID",
           "required": true,
           "type": "string"
         }, {
           "in": "body",
           "name": "body",
-          "description": "Updated data object",
           "required": true,
           "schema": { "$ref": "#/definitions/Data" }
         }],
@@ -140,27 +171,20 @@ const swaggerDocument = {
           "200": {
             "description": "Data updated successfully",
             "schema": { "$ref": "#/definitions/Data" }
-          },
-          "400": { "description": "Invalid input data or missing required fields" },
-          "404": { "description": "Data not found" },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "delete": {
         "tags": ["Data"],
         "summary": "Delete data by ID",
-        "description": "Delete a data object from the database",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "Data ID",
           "required": true,
           "type": "string"
         }],
         "responses": {
-          "200": { "description": "Data deleted successfully" },
-          "404": { "description": "Data not found" },
-          "500": { "description": "Server error" }
+          "200": { "description": "Data deleted successfully" }
         }
       }
     },
@@ -168,7 +192,6 @@ const swaggerDocument = {
       "get": {
         "tags": ["Users"],
         "summary": "Get all users",
-        "description": "Retrieve all users from the database",
         "responses": {
           "200": {
             "description": "Array of user objects",
@@ -176,18 +199,15 @@ const swaggerDocument = {
               "type": "array",
               "items": { "$ref": "#/definitions/User" }
             }
-          },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "post": {
         "tags": ["Users"],
         "summary": "Create new user",
-        "description": "Create a new user with all required fields and validation",
         "parameters": [{
           "in": "body",
           "name": "body",
-          "description": "User object",
           "required": true,
           "schema": { "$ref": "#/definitions/User" }
         }],
@@ -195,9 +215,7 @@ const swaggerDocument = {
           "201": {
             "description": "User created successfully",
             "schema": { "$ref": "#/definitions/User" }
-          },
-          "400": { "description": "Invalid input data, missing required fields, or email already exists" },
-          "500": { "description": "Server error" }
+          }
         }
       }
     },
@@ -205,11 +223,9 @@ const swaggerDocument = {
       "get": {
         "tags": ["Users"],
         "summary": "Get user by ID",
-        "description": "Retrieve a specific user by their ID",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "User ID",
           "required": true,
           "type": "string"
         }],
@@ -217,25 +233,20 @@ const swaggerDocument = {
           "200": {
             "description": "User found",
             "schema": { "$ref": "#/definitions/User" }
-          },
-          "404": { "description": "User not found" },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "put": {
         "tags": ["Users"],
         "summary": "Update user by ID",
-        "description": "Update an existing user with validation",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "User ID",
           "required": true,
           "type": "string"
         }, {
           "in": "body",
           "name": "body",
-          "description": "Updated user object",
           "required": true,
           "schema": { "$ref": "#/definitions/User" }
         }],
@@ -243,60 +254,80 @@ const swaggerDocument = {
           "200": {
             "description": "User updated successfully",
             "schema": { "$ref": "#/definitions/User" }
-          },
-          "400": { "description": "Invalid input data, missing required fields, or email already exists" },
-          "404": { "description": "User not found" },
-          "500": { "description": "Server error" }
+          }
         }
       },
       "delete": {
         "tags": ["Users"],
         "summary": "Delete user by ID",
-        "description": "Delete a user from the database",
         "parameters": [{
           "name": "id",
           "in": "path",
-          "description": "User ID",
           "required": true,
           "type": "string"
         }],
         "responses": {
-          "200": { "description": "User deleted successfully" },
-          "404": { "description": "User not found" },
-          "500": { "description": "Server error" }
+          "200": { "description": "User deleted successfully" }
         }
       }
     }
   }
 };
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch(err => console.error("❌ Error connecting to MongoDB:", err));
+// Swagger UI Setup
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  swaggerOptions: {
+    tryItOutEnabled: true
+  }
+}));
 
-// Middleware
-app.use(express.json());
-
-// Swagger Documentation Route
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// Use Routes - Both Collections
+// Routes
 app.use('/data', require('./routes/data'));
 app.use('/users', require('./routes/users'));
 
-// Root Route
-app.get('/', (req, res) => {
-  res.send('CSE341 W03 CRUD API - Complete with Data and Users collections. Visit /api-docs for documentation');
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
-// Start the Server
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'CSE341 W03 CRUD API - Working!',
+    documentation: '/api-docs',
+    endpoints: {
+      data: '/data',
+      users: '/users',
+      health: '/health'
+    }
+  });
+});
+
+// Error handler
+app.use((error, req, res, next) => {
+  console.error('Error:', error);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: error.message
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `Route ${req.originalUrl} not found`
+  });
+});
+
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
   console.log(`🔗 Data endpoints: /data`);
   console.log(`👥 Users endpoints: /users`);
 });
