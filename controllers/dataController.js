@@ -61,9 +61,66 @@ const createData = async (req, res) => {
   }
 };
 
+// PUT update data by ID - Controller Function
+const updateData = async (req, res) => {
+  // INPUT VALIDATION: Check required fields for PUT request
+  const { title, description, category, price, author } = req.body;
+  
+  if (!title || !description || !category || !price || !author) {
+    return res.status(400).json({ 
+      message: "Missing required fields: title, description, category, price, author" 
+    });
+  }
+
+  try {
+    const updatedData = await Data.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...req.body,
+        lastModified: new Date(),
+        metadata: {
+          ...req.body.metadata,
+          author: req.body.author,
+          version: req.body.version || "1.0"
+        }
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (updatedData) {
+      res.json(updatedData);
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (error) {
+    // ERROR HANDLING: Validation errors
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// DELETE data by ID - Controller Function
+const deleteData = async (req, res) => {
+  try {
+    const deletedData = await Data.findByIdAndDelete(req.params.id);
+    if (deletedData) {
+      res.json({ 
+        message: "Data deleted successfully",
+        deletedData: deletedData 
+      });
+    } else {
+      res.status(404).json({ message: "Data not found" });
+    }
+  } catch (error) {
+    // ERROR HANDLING: Server errors
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // EXPORT: All controller functions for use in routes
 module.exports = {
   getAllData,
   getDataById,
-  createData
+  createData,
+  updateData,
+  deleteData
 };

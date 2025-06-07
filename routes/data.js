@@ -71,4 +71,62 @@ router.post('/',
   dataController.createData
 );
 
+// PUT Update Data by ID
+router.put('/:id', 
+  /*  #swagger.tags = ['Data']
+      #swagger.summary = 'Update data by ID'
+      #swagger.description = 'Update an existing data object with validation'
+      #swagger.parameters['id'] = {
+        in: 'path',
+        description: 'Data ID',
+        required: true,
+        type: 'string'
+      }
+      #swagger.parameters['body'] = {
+        in: 'body',
+        description: 'Updated data object',
+        required: true,
+        schema: { $ref: '#/definitions/Data' }
+      }
+      #swagger.responses[200] = {
+        description: 'Data updated successfully',
+        schema: { $ref: '#/definitions/Data' }
+      }
+      #swagger.responses[400] = {
+        description: 'Invalid input data or missing required fields'
+      }
+      #swagger.responses[404] = {
+        description: 'Data not found'
+      }
+      #swagger.responses[500] = {
+        description: 'Server error'
+      }
+  */
+  dataController.updateData
+);
+
+// DELETE Data by ID
+router.delete('/:id', 
+  /*  #swagger.tags = ['Data']
+      #swagger.summary = 'Delete data by ID'
+      #swagger.description = 'Delete a data object from the database'
+      #swagger.parameters['id'] = {
+        in: 'path',
+        description: 'Data ID',
+        required: true,
+        type: 'string'
+      }
+      #swagger.responses[200] = {
+        description: 'Data deleted successfully'
+      }
+      #swagger.responses[404] = {
+        description: 'Data not found'
+      }
+      #swagger.responses[500] = {
+        description: 'Server error'
+      }
+  */
+  dataController.deleteData
+);
+
 module.exports = router;
