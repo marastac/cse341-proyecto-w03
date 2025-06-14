@@ -4,6 +4,8 @@ const express = require('express');
 const router = express.Router();
 // IMPORT: Controller functions following MVC architecture
 const dataController = require('../controllers/dataController');
+// IMPORT: Authentication middleware
+const { ensureAuthenticated } = require('../middleware/auth');
 
 // GET All Data
 router.get('/', 
@@ -127,6 +129,106 @@ router.delete('/:id',
       }
   */
   dataController.deleteData
+);
+
+// GET Protected Data - Requires Authentication
+router.get('/protected', 
+  ensureAuthenticated,
+  /*  #swagger.tags = ['Data (Protected)']
+      #swagger.summary = 'Get protected data'
+      #swagger.description = 'Get all data - Authentication Required'
+      #swagger.security = [{ "OAuth": [] }]
+      #swagger.responses[200] = {
+        description: 'Array of data objects (authenticated access)',
+        schema: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            user: { type: 'object' },
+            data: {
+              type: 'array',
+              items: { $ref: '#/definitions/Data' }
+            },
+            protectedAccess: { type: 'boolean' }
+          }
+        }
+      }
+      #swagger.responses[401] = {
+        description: 'Authentication required'
+      }
+  */
+  async (req, res) => {
+    try {
+      const data = await require('../models/data').find().sort({ createdDate: -1 });
+      res.status(200).json({
+        message: 'Protected data access granted',
+        user: req.user,
+        data: data,
+        protectedAccess: true,
+        accessTime: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching protected data:', error);
+      res.status(500).json({ 
+        error: 'Server Error',
+        message: 'Failed to fetch protected data'
+      });
+    }
+  }
+);
+
+// POST Protected Create Data - Requires Authentication
+router.post('/protected', 
+  ensureAuthenticated,
+  /*  #swagger.tags = ['Data (Protected)']
+      #swagger.summary = 'Create data (protected)'
+      #swagger.description = 'Create new data with authenticated user info'
+      #swagger.security = [{ "OAuth": [] }]
+      #swagger.parameters['body'] = {
+        in: 'body',
+        description: 'Data object',
+        required: true,
+        schema: { $ref: '#/definitions/Data' }
+      }
+      #swagger.responses[201] = {
+        description: 'Data created successfully with user attribution'
+      }
+      #swagger.responses[401] = {
+        description: 'Authentication required'
+      }
+  */
+  async (req, res) => {
+    try {
+      const Data = require('../models/data');
+      
+      // Automatically set metadata.author to authenticated user
+      const dataWithUser = {
+        ...req.body,
+        metadata: {
+          ...req.body.metadata,
+          author: req.user.displayName || req.user.username,
+          createdBy: req.user.username,
+          authenticatedCreation: true
+        }
+      };
+      
+      const newData = new Data(dataWithUser);
+      const savedData = await newData.save();
+      
+      res.status(201).json({
+        message: 'Data created successfully by authenticated user',
+        data: savedData,
+        createdBy: req.user,
+        protectedCreation: true
+      });
+    } catch (error) {
+      console.error('Error creating protected data:', error);
+      res.status(500).json({ 
+        error: 'Server Error',
+        message: 'Failed to create protected data'
+      });
+    }
+  }
 );
 
 module.exports = router;

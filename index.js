@@ -1,16 +1,18 @@
-// index.js - VERSIÓN SIMPLIFICADA Y ESTABLE
+// index.js - VERSIÓN CON OAUTH AUTHENTICATION + TEST DIRECTO
 const express = require('express');
 const mongoose = require('mongoose');
 const swaggerUi = require('swagger-ui-express');
 const cors = require('cors');
+const session = require('express-session');
+const passport = require('./config/passport'); // Import our passport configuration
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
-console.log('🚀 Starting server...');
+console.log('🚀 Starting server with OAuth authentication...');
 
-// CORS Configuration - SIMPLE Y FUNCIONAL
+// CORS Configuration
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -34,6 +36,21 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Session configuration for OAuth
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -47,19 +64,29 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// Simple Swagger Document
+// Enhanced Swagger Document with OAuth Security
 const swaggerDocument = {
   "swagger": "2.0",
   "info": {
-    "title": "CSE341 W03 CRUD Operations API",
-    "description": "Complete API with Data and Users collections",
-    "version": "2.0.0"
+    "title": "CSE341 W03 CRUD Operations API with OAuth",
+    "description": "Complete API with Data and Users collections, featuring GitHub OAuth authentication",
+    "version": "2.1.0"
   },
   "host": process.env.NODE_ENV === 'production' ? 'cse341-proyecto-w03.onrender.com' : `localhost:${PORT}`,
   "basePath": "/",
   "schemes": process.env.NODE_ENV === 'production' ? ["https"] : ["http"],
   "consumes": ["application/json"],
   "produces": ["application/json"],
+  "securityDefinitions": {
+    "OAuth": {
+      "type": "oauth2",
+      "authorizationUrl": "/auth/github",
+      "flow": "implicit",
+      "scopes": {
+        "user:email": "Access user email"
+      }
+    }
+  },
   "definitions": {
     "Data": {
       "type": "object",
@@ -105,6 +132,36 @@ const swaggerDocument = {
     }
   },
   "paths": {
+    "/auth/github": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Login with GitHub",
+        "description": "Redirect to GitHub for OAuth authentication",
+        "responses": {
+          "302": { "description": "Redirect to GitHub OAuth" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Logout user",
+        "description": "End user session and logout",
+        "responses": {
+          "200": { "description": "Logout successful" }
+        }
+      }
+    },
+    "/auth/status": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Check authentication status",
+        "description": "Check if user is currently authenticated",
+        "responses": {
+          "200": { "description": "Authentication status" }
+        }
+      }
+    },
     "/data": {
       "get": {
         "tags": ["Data"],
@@ -133,6 +190,34 @@ const swaggerDocument = {
             "description": "Data created successfully",
             "schema": { "$ref": "#/definitions/Data" }
           }
+        }
+      }
+    },
+    "/data/protected": {
+      "get": {
+        "tags": ["Data (Protected)"],
+        "summary": "Get protected data",
+        "description": "Get all data - Authentication Required",
+        "security": [{ "OAuth": [] }],
+        "responses": {
+          "200": { "description": "Array of data objects (authenticated access)" },
+          "401": { "description": "Authentication required" }
+        }
+      },
+      "post": {
+        "tags": ["Data (Protected)"],
+        "summary": "Create data (protected)",
+        "description": "Create new data with authenticated user info",
+        "security": [{ "OAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": { "$ref": "#/definitions/Data" }
+        }],
+        "responses": {
+          "201": { "description": "Data created successfully with user attribution" },
+          "401": { "description": "Authentication required" }
         }
       }
     },
@@ -219,6 +304,34 @@ const swaggerDocument = {
         }
       }
     },
+    "/users/protected": {
+      "get": {
+        "tags": ["Users (Protected)"],
+        "summary": "Get protected users",
+        "description": "Get all users - Authentication Required",
+        "security": [{ "OAuth": [] }],
+        "responses": {
+          "200": { "description": "Array of user objects (authenticated access)" },
+          "401": { "description": "Authentication required" }
+        }
+      },
+      "post": {
+        "tags": ["Users (Protected)"],
+        "summary": "Create user (protected)",
+        "description": "Create new user with authenticated user info",
+        "security": [{ "OAuth": [] }],
+        "parameters": [{
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": { "$ref": "#/definitions/User" }
+        }],
+        "responses": {
+          "201": { "description": "User created successfully with user attribution" },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
     "/users/{id}": {
       "get": {
         "tags": ["Users"],
@@ -281,28 +394,61 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
   }
 }));
 
+// TEST - Direct route for testing
+app.get('/test-direct', (req, res) => {
+  res.json({ message: 'Direct route works', timestamp: new Date().toISOString() });
+});
+
+// TEST OAUTH DIRECTO EN INDEX.JS
+app.get('/auth-direct', (req, res) => {
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const redirectUri = 'http://localhost:3000/auth/github/callback';
+  const githubUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
+  
+  console.log('🔗 Redirecting to GitHub:', githubUrl);
+  res.redirect(githubUrl);
+});
+
 // Routes
+app.use('/auth', require('./routes/auth')); // OAuth routes
 app.use('/data', require('./routes/data'));
 app.use('/users', require('./routes/users'));
+
+// Enhanced root route with OAuth info
+app.get('/', (req, res) => {
+  res.json({
+    message: 'CSE341 W03 CRUD API with OAuth Authentication - Working!',
+    authentication: {
+      status: req.isAuthenticated() ? 'Authenticated' : 'Not Authenticated',
+      user: req.isAuthenticated() ? req.user : null,
+      loginUrl: '/auth/github',
+      logoutUrl: '/auth/logout'
+    },
+    documentation: '/api-docs',
+    endpoints: {
+      auth: '/auth',
+      data: '/data',
+      users: '/users',
+      health: '/health',
+      protectedData: '/data/protected',
+      protectedUsers: '/users/protected',
+      testDirect: '/test-direct',
+      authDirect: '/auth-direct'
+    },
+    version: '2.1.0'
+  });
+});
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'CSE341 W03 CRUD API - Working!',
-    documentation: '/api-docs',
-    endpoints: {
-      data: '/data',
-      users: '/users',
-      health: '/health'
+    environment: process.env.NODE_ENV || 'development',
+    authentication: 'OAuth with GitHub enabled',
+    oauth: {
+      configured: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+      provider: 'GitHub'
     }
   });
 });
@@ -320,7 +466,15 @@ app.use((error, req, res, next) => {
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    message: `Route ${req.originalUrl} not found`
+    message: `Route ${req.originalUrl} not found`,
+    availableRoutes: {
+      auth: '/auth',
+      data: '/data',
+      users: '/users',
+      documentation: '/api-docs',
+      testDirect: '/test-direct',
+      authDirect: '/auth-direct'
+    }
   });
 });
 
@@ -328,6 +482,10 @@ app.use('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+  console.log(`🔐 OAuth Login: http://localhost:${PORT}/auth/github`);
+  console.log(`🧪 Test Direct: http://localhost:${PORT}/test-direct`);
+  console.log(`🧪 Auth Direct: http://localhost:${PORT}/auth-direct`);
   console.log(`🔗 Data endpoints: /data`);
   console.log(`👥 Users endpoints: /users`);
+  console.log(`🛡️ Protected endpoints: /data/protected, /users/protected`);
 });
